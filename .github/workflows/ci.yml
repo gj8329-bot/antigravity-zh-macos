@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Validate shell scripts syntax
+        run: |
+          bash -n install.sh
+          bash -n uninstall.sh
+          bash -n bin/antigravity-zh-macos
+
+      - name: Run Python unit tests
+        run: python3 -m unittest discover -s tests -v
+
+      - name: Run DOM overlay unit tests
+        run: node --test tests/test_overlay.mjs

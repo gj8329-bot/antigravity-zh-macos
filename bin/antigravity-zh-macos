@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+VERSION="1.0.0"
+
+# Resolve real script directory even when invoked via symlink
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" >/dev/null 2>&1 && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ "$SOURCE" != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" >/dev/null 2>&1 && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/antigravity-zh-macos"
+CONFIG_FILE="$CONFIG_DIR/config.json"
+
+get_default_lang() {
+  if [ -f "$CONFIG_FILE" ] && command -v python3 >/dev/null 2>&1; then
+    python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d.get("lang","zh-TW"))' "$CONFIG_FILE" 2>/dev/null || echo "zh-TW"
+  else
+    echo "zh-TW"
+  fi
+}
+
+usage() {
+  cat <<EOF
+antigravity-zh-macos v${VERSION}
+Google Antigravity macOS 無損開源中文化啟動器
+
+用法:
+  antigravity-zh-macos [start] [--lang zh-TW|zh-CN] [--app-path PATH] [--verbose] [-- ...args]
+  antigravity-zh-macos doctor  [--lang zh-TW|zh-CN] [--app-path PATH]
+  antigravity-zh-macos config  --lang zh-TW|zh-CN
+  antigravity-zh-macos version
+  antigravity-zh-macos help
+
+範例:
+  antigravity-zh-macos start                  # 以預設語系啟動繁體中文版
+  antigravity-zh-macos start --lang zh-CN     # 以簡體中文啟動
+  antigravity-zh-macos doctor                 # 檢查 macOS 環境、官方簽章與詞庫
+  antigravity-zh-macos config --lang zh-TW    # 設定預設語系為繁體中文
+EOF
+}
+
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "[錯誤] 找不到 python3。請執行 'xcode-select --install' 或透過 Homebrew 安裝 Python 3。" >&2
+  exit 1
+fi
+
+CMD="${1:-start}"
+case "$CMD" in
+  -h|--help|help)
+    usage
+    exit 0
+    ;;
+  -v|--version|version)
+    echo "antigravity-zh-macos ${VERSION}"
+    exit 0
+    ;;
+  doctor)
+    shift
+    DEFAULT_LANG="$(get_default_lang)"
+    exec python3 "$PROJECT_ROOT/src/cdp_injector.py" --doctor --lang "$DEFAULT_LANG" "$@"
+    ;;
+  config)
+    shift
+    LANG_VAL=""
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        --lang)
+          LANG_VAL="${2:-}"
+          shift 2
+          ;;
+        *)
+          echo "[錯誤] 未知選項: $1" >&2
+          exit 1
+          ;;
+      esac
+    done
+    if [ "$LANG_VAL" != "zh-TW" ] && [ "$LANG_VAL" != "zh-CN" ]; then
+      echo "[錯誤] --lang 僅支援 zh-TW 或 zh-CN" >&2
+      exit 1
+    fi
+    mkdir -p "$CONFIG_DIR"
+    printf '{"lang": "%s"}\n' "$LANG_VAL" > "$CONFIG_FILE"
+    echo "[完成] 已將預設語系設定為 ${LANG_VAL}（${CONFIG_FILE}）"
+    exit 0
+    ;;
+  start)
+    shift
+    DEFAULT_LANG="$(get_default_lang)"
+    exec python3 "$PROJECT_ROOT/src/cdp_injector.py" --lang "$DEFAULT_LANG" "$@"
+    ;;
+  --*)
+    DEFAULT_LANG="$(get_default_lang)"
+    exec python3 "$PROJECT_ROOT/src/cdp_injector.py" --lang "$DEFAULT_LANG" "$@"
+    ;;
+  *)
+    echo "[錯誤] 未知指令: $CMD" >&2
+    usage >&2
+    exit 1
+    ;;
+esac

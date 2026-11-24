@@ -1,0 +1,23 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.venv/
+
+# Node / Logs
+node_modules/
+*.log
+npm-debug.log*
+
+# Local config / runtime
+.env
+*.pid
+dist/
+build/
